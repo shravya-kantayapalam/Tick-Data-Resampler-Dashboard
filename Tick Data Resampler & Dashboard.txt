@@ -1,0 +1,89 @@
+"""
+Tick Data Resampler & Dashboard
+-------------------------------
+Simulates raw tick data, aggregates into time bars (OHLCV), and visualizes.
+Author: [Your Name]
+Date: 2025-07-22
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+def simulate_tick_data(n_ticks=5000, start_price=100.0):
+    """
+    Generate a DataFrame with simulated tick data.
+    - n_ticks: number of ticks to simulate
+    - start_price: initial price
+    Returns: DataFrame with columns ['timestamp', 'price', 'volume']
+    """
+    np.random.seed(42)
+    # Simulate timestamps, irregular seconds within a trading day (for demo, every second)
+    timestamps = pd.date_range('2025-07-21 09:30:00', periods=n_ticks, freq='S')
+    # Simulate price random walk
+    price_changes = np.random.normal(0, 0.02, size=n_ticks)
+    prices = start_price + np.cumsum(price_changes)
+    # Simulate random volume between 1 and 10 lots
+    volumes = np.random.randint(1, 10, size=n_ticks)
+    df = pd.DataFrame({'timestamp': timestamps, 'price': prices, 'volume': volumes})
+    df.set_index('timestamp', inplace=True)
+    return df
+
+def resample_ticks(df, bar='1min'):
+    """
+    Aggregates raw tick data into OHLCV bars.
+    - bar: time interval (e.g., '1min', '5min')
+    Returns: DataFrame with OHLCV columns.
+    """
+    ohlc_dict = {
+        'price': 'ohlc',
+        'volume': 'sum'
+    }
+    bars = df.resample(bar).agg(ohlc_dict)
+    # Pandas will make columns MultiIndex after .agg, so clean up:
+    bars.columns = ['open', 'high', 'low', 'close', 'volume']
+    bars.dropna(inplace=True)
+    return bars
+
+def plot_dashboard(bars, title="OHLCV 1-Min Bars"):
+    """
+    Plots price and volume subplots for resampled bars.
+    """
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,7), sharex=True, gridspec_kw={'height_ratios':[3,1]})
+
+    # Plot OHLC as line for simplicity
+    ax1.plot(bars.index, bars['close'], label='Close', color='navy')
+    ax1.fill_between(bars.index, bars['low'], bars['high'], alpha=0.15, color='blue')
+    ax1.set_ylabel('Price')
+    ax1.set_title(title)
+    ax1.grid(alpha=0.3)
+    ax1.legend()
+
+    # Volume as bar
+    ax2.bar(bars.index, bars['volume'], width=0.0006, color='grey')
+    ax2.set_ylabel('Volume')
+    ax2.set_xlabel('Time')
+    ax2.grid(alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig("tick_resampler_output.png")
+    plt.show()
+
+def main():
+    print("Simulating raw tick data...")
+    ticks = simulate_tick_data(n_ticks=5000, start_price=100.0)
+    print("\nSample of raw tick data:")
+    print(ticks.head())
+
+    print("\nResampling ticks to 1-min bars...")
+    bars_1min = resample_ticks(ticks, bar='1min')
+    print("\nSample of resampled OHLCV bars:")
+    print(bars_1min.head())
+
+    plot_dashboard(bars_1min)
+
+    print("\nDashboard chart saved as tick_resampler_output.png")
+    print("Project complete! See your resampled price and volume chart.")
+
+if __name__ == "__main__":
+    main()
